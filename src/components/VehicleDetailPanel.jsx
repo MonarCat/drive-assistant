@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { STATUS_COLORS, STATUS_LABELS, SIGNAL_LABELS } from '../data/mockVehicles'
+import { STATUS_COLORS, STATUS_LABELS, SIGNAL_LABELS } from '../utils/vehicleData'
 
-export default function VehicleDetail({ vehicle, onClose, onSos, onPoke, onTalk }) {
+export default function VehicleDetailPanel({ vehicle, onClose, onSos, onPoke, onTalk, onTrack }) {
   const [activeAction, setActiveAction] = useState(null)
 
   if (!vehicle) return null
@@ -14,12 +14,13 @@ export default function VehicleDetail({ vehicle, onClose, onSos, onPoke, onTalk 
     if (action === 'sos') onSos && onSos(vehicle)
     if (action === 'poke') onPoke && onPoke(vehicle)
     if (action === 'talk') onTalk && onTalk(vehicle)
+    if (action === 'track') onTrack && onTrack(vehicle)
     setTimeout(() => setActiveAction(null), 2000)
   }
 
   return (
     <div
-      className="absolute right-0 top-[52px] bottom-0 z-[900] flex flex-col animate-slide-right"
+      className="absolute right-0 top-[52px] bottom-[28px] z-[900] flex flex-col animate-slide-right"
       style={{
         width: 260,
         background: 'var(--panel)',
@@ -158,6 +159,13 @@ export default function VehicleDetail({ vehicle, onClose, onSos, onPoke, onTalk 
               color="var(--accent2)"
               onClick={() => handleAction('poke')}
               activeLabel="POKE SENT ✓"
+            />
+            <ActionButton
+              label="📍  TRACK NODE"
+              active={activeAction === 'track'}
+              color="var(--yellow)"
+              onClick={() => handleAction('track')}
+              activeLabel="TRACKING ✓"
             />
             <ActionButton
               label="🚨  BROADCAST SOS"

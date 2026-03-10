@@ -1,10 +1,12 @@
 import React from 'react'
-import { STATUS_COLORS, STATUS_LABELS, SIGNAL_LABELS } from '../data/mockVehicles'
+import { STATUS_COLORS, STATUS_LABELS, SIGNAL_LABELS } from '../utils/vehicleData'
 
-export default function VehicleList({ vehicles, selectedId, onSelect }) {
+export default function VehicleSidebar({ vehicles, selectedId, onSelect, statusFilter, setStatusFilter }) {
+  const filters = ['all', 'active', 'idle', 'sos', 'offline']
+
   return (
     <div
-      className="absolute left-0 top-[52px] bottom-0 z-[900] flex flex-col animate-slide-left"
+      className="absolute left-0 top-[52px] bottom-[28px] z-[900] flex flex-col animate-slide-left"
       style={{
         width: 240,
         background: 'var(--panel)',
@@ -24,6 +26,33 @@ export default function VehicleList({ vehicles, selectedId, onSelect }) {
         </span>
       </div>
 
+      {/* Status filter tabs */}
+      <div
+        className="flex gap-1 px-2 py-1.5 overflow-x-auto"
+        style={{ borderBottom: '1px solid var(--border)', flexShrink: 0 }}
+      >
+        {filters.map(f => (
+          <button
+            key={f}
+            onClick={() => setStatusFilter(f)}
+            style={{
+              fontFamily: "'Share Tech Mono', monospace",
+              fontSize: 8,
+              letterSpacing: '0.08em',
+              padding: '2px 6px',
+              borderRadius: 2,
+              border: `1px solid ${statusFilter === f ? 'var(--accent)' : 'var(--border2)'}`,
+              background: statusFilter === f ? 'var(--accent-dim)' : 'transparent',
+              color: statusFilter === f ? 'var(--accent)' : 'var(--text-dim)',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {f.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
       {/* Vehicle entries */}
       <div className="flex-1 overflow-y-auto">
         {vehicles.length === 0 ? (
@@ -36,7 +65,7 @@ export default function VehicleList({ vehicles, selectedId, onSelect }) {
               key={vehicle.id}
               vehicle={vehicle}
               selected={vehicle.id === selectedId}
-              onClick={() => onSelect(vehicle.id === selectedId ? null : vehicle.id)}
+              onClick={() => onSelect(vehicle.id)}
             />
           ))
         )}

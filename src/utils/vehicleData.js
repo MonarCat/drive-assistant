@@ -141,3 +141,16 @@ export const SIGNAL_LABELS = {
   weak: '▂░░',
   none: '░░░',
 }
+
+export function moveVehicle(v) {
+  if (v.status === 'offline' || v.status === 'idle' || v.status === 'sos') return v
+  const rad = (v.heading * Math.PI) / 180
+  const delta = 0.0002 + Math.random() * 0.0001
+  return {
+    ...v,
+    lat: v.lat + Math.cos(rad) * delta,
+    lng: v.lng + Math.sin(rad) * delta,
+    speed: Math.max(20, Math.min(80, v.speed + (Math.random() - 0.5) * 5)),
+    lastSeen: '0s ago',
+  }
+}
