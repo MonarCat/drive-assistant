@@ -1,11 +1,20 @@
-import React from 'react'
-import { STATUS_COLORS, STATUS_LABELS, SIGNAL_LABELS } from '../data/mockVehicles'
+import React, { useState, useEffect } from 'react'
 
-export default function TopBar({ vehicles, searchQuery, setSearchQuery, selectedId }) {
+export default function TopBar({ vehicles, searchQuery, setSearchQuery }) {
+  const [clock, setClock] = useState(new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setClock(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
   const active = vehicles.filter(v => v.status === 'active').length
   const sos = vehicles.filter(v => v.status === 'sos').length
   const offline = vehicles.filter(v => v.status === 'offline').length
   const meshNodes = vehicles.filter(v => v.status !== 'offline').length
+
+  const timeStr = clock.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const dateStr = clock.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
 
   return (
     <div
@@ -53,8 +62,9 @@ export default function TopBar({ vehicles, searchQuery, setSearchQuery, selected
         </div>
       </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-2">
+      {/* Right — search + clock + live */}
+      <div className="flex items-center gap-3">
+        {/* Search */}
         <div
           className="flex items-center gap-2 px-3 py-1.5 rounded"
           style={{ background: 'var(--panel)', border: '1px solid var(--border2)', width: 220 }}
@@ -73,6 +83,16 @@ export default function TopBar({ vehicles, searchQuery, setSearchQuery, selected
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} style={{ color: 'var(--text-mid)' }}>✕</button>
           )}
+        </div>
+
+        {/* Live clock */}
+        <div className="flex flex-col items-end" style={{ lineHeight: 1.2 }}>
+          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 13, color: 'var(--accent)', letterSpacing: '0.05em' }}>
+            {timeStr}
+          </span>
+          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 8, color: 'var(--text-dim)', letterSpacing: '0.08em' }}>
+            {dateStr}
+          </span>
         </div>
 
         {/* Live indicator */}

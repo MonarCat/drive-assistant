@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { STATUS_COLORS } from '../data/mockVehicles'
+import { STATUS_COLORS } from '../utils/vehicleData'
 
 // Fix Leaflet default icon issue with bundlers
 delete L.Icon.Default.prototype._getIconUrl
@@ -107,7 +107,7 @@ function VehicleLayer({ vehicles, selectedId, onSelect }) {
   return null
 }
 
-export default function MapView({ vehicles, selectedId, onSelect }) {
+export default function LiveMap({ vehicles, selectedId, onSelect }) {
   const center = [-1.2921, 36.8219]
 
   return (
