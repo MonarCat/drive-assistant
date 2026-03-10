@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #050a0f;
+  --panel: #070d14;
+  --panel2: #08111a;
+  --border: #0d2233;
+  --border2: #0f2a40;
+  --accent: #00d4ff;
+  --accent-dim: rgba(0,212,255,0.15);
+  --accent2: #00ff9d;
+  --accent2-dim: rgba(0,255,157,0.12);
+  --red: #ff3b4e;
+  --red-dim: rgba(255,59,78,0.15);
+  --yellow: #ffc82c;
+  --yellow-dim: rgba(255,200,44,0.12);
+  --text: #c8dde8;
+  --text-dim: #3a5568;
+  --text-mid: #6b8fa5;
+  --glow: 0 0 20px rgba(0,212,255,0.25);
+  --glow2: 0 0 20px rgba(0,255,157,0.2);
+  --glow-red: 0 0 20px rgba(255,59,78,0.25);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Exo 2', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* Leaflet overrides */
+.leaflet-container {
+  background: #050e18 !important;
+  font-family: 'Share Tech Mono', monospace !important;
+}
+
+.leaflet-tile {
+  filter: brightness(0.5) saturate(0.3) hue-rotate(185deg) !important;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid var(--border) !important;
+  background: var(--panel) !important;
+}
+
+.leaflet-control-zoom a {
+  background: var(--panel) !important;
+  color: var(--accent) !important;
+  border-color: var(--border) !important;
+  font-family: 'Rajdhani', sans-serif !important;
+  font-size: 18px !important;
+  line-height: 26px !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: var(--accent-dim) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(5,10,15,0.8) !important;
+  color: var(--text-dim) !important;
+  font-size: 8px !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--accent) !important;
+}
+
+/* Custom vehicle markers */
+.da-vehicle-marker {
+  background: transparent;
+  border: none;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.6); }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0.5); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInDown {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes dataFlow {
+  to { stroke-dashoffset: -20; }
+}
+
+@keyframes sosPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,59,78,0.6); }
+  50% { box-shadow: 0 0 0 12px rgba(255,59,78,0); }
+}
+
+.animate-pulse-dot { animation: pulse 1.5s ease-in-out infinite; }
+.animate-blink { animation: blink 0.9s ease-in-out infinite; }
+.animate-sos { animation: sosPulse 1s ease-in-out infinite; }
+.animate-slide-left { animation: slideInLeft 0.3s ease-out; }
+.animate-slide-right { animation: slideInRight 0.3s ease-out; }
+.animate-slide-down { animation: slideInDown 0.3s ease-out; }
+.animate-fade-in { animation: fadeIn 0.4s ease-out; }
+
+/* Grid background */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Scanline effect */
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Glow effects */
+.text-glow-accent { text-shadow: 0 0 12px rgba(0,212,255,0.6); }
+.text-glow-green { text-shadow: 0 0 12px rgba(0,255,157,0.6); }
+.text-glow-red { text-shadow: 0 0 12px rgba(255,59,78,0.6); }
