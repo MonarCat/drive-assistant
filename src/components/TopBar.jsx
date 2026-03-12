@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 
-export default function TopBar({ vehicles, searchQuery, setSearchQuery }) {
+export default function TopBar({ vehicles, searchQuery, setSearchQuery, profile, onShowProfile }) {
   const [clock, setClock] = useState(new Date())
 
   useEffect(() => {
@@ -100,6 +100,19 @@ export default function TopBar({ vehicles, searchQuery, setSearchQuery }) {
           <span className="animate-pulse-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent2)', display: 'inline-block' }} />
           <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 10, color: 'var(--accent2)' }}>LIVE</span>
         </div>
+
+        {/* Profile button */}
+        {onShowProfile && (
+          <button
+            onClick={onShowProfile}
+            title="Profile"
+            style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          >
+            <span style={{ fontFamily: "'Exo 2', sans-serif", fontSize: 11, fontWeight: 700, color: '#00d4ff' }}>
+              {(profile?.full_name || profile?.email || '?')[0]?.toUpperCase() || '?'}
+            </span>
+          </button>
+        )}
       </div>
     </div>
   )

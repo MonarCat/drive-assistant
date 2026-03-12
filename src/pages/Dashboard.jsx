@@ -7,7 +7,7 @@ import SOSAlertBanner from '../components/SOSAlertBanner'
 import BottomBar from '../components/BottomBar'
 import { useVehicles } from '../hooks/useVehicles'
 
-export default function Dashboard() {
+export default function Dashboard({ profile, onShowProfile }) {
   const {
     vehicles,
     filteredVehicles,
@@ -56,6 +56,8 @@ export default function Dashboard() {
         vehicles={vehicles}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        profile={profile}
+        onShowProfile={onShowProfile}
       />
 
       {/* SOS alert banners */}
