@@ -3,6 +3,7 @@ import { useClientAuth } from './hooks/useClientAuth.js'
 import Login    from './pages/auth/Login.jsx'
 import SignUp   from './pages/auth/SignUp.jsx'
 import Dashboard from './pages/Dashboard.jsx'
+import Profile   from './pages/Profile.jsx'
 
 export default function App() {
   const {
@@ -10,7 +11,8 @@ export default function App() {
     signIn, signUp, signOut, resetPassword, refreshVehicles
   } = useClientAuth()
 
-  const [page, setPage] = useState('login')
+  const [page, setPage]        = useState('login')
+  const [showProfile, setShowProfile] = useState(false)
 
   if (loading) return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0e1a', flexDirection: 'column', gap: 14 }}>
@@ -20,6 +22,17 @@ export default function App() {
     </div>
   )
 
+  if (user && showProfile) return (
+    <Profile
+      user={user}
+      profile={profile}
+      vehicles={vehicles}
+      onSignOut={signOut}
+      onBack={() => setShowProfile(false)}
+      onRefreshVehicles={refreshVehicles}
+    />
+  )
+
   if (user) return (
     <Dashboard
       user={user}
@@ -27,6 +40,7 @@ export default function App() {
       vehicles={vehicles}
       onSignOut={signOut}
       onRefreshVehicles={refreshVehicles}
+      onShowProfile={() => setShowProfile(true)}
     />
   )
 
