@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useClientAuth } from './hooks/useClientAuth.js'
 import Login    from './pages/auth/Login.jsx'
 import SignUp   from './pages/auth/SignUp.jsx'
@@ -13,11 +13,22 @@ export default function App() {
 
   const [page, setPage]        = useState('login')
   const [showProfile, setShowProfile] = useState(false)
+  const [loadingTooLong, setLoadingTooLong] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoadingTooLong(true), 4000)
+    return () => clearTimeout(t)
+  }, [])
 
   if (loading) return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0e1a', flexDirection: 'column', gap: 14 }}>
       <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(0,212,255,0.15)', borderTop: '2px solid #00d4ff', animation: 'spin 1s linear infinite' }} />
       <span style={{ fontSize: 10, letterSpacing: 4, color: '#00d4ff', fontFamily: "'Exo 2', sans-serif" }}>D.A LOADING...</span>
+      {loadingTooLong && (
+        <span style={{ fontSize: 11, color: 'rgba(0,212,255,0.6)', fontFamily: "'Exo 2', sans-serif", marginTop: 8 }}>
+          Taking longer than usual… please wait
+        </span>
+      )}
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
