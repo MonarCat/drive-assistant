@@ -124,7 +124,7 @@ export function useClientAuth() {
     if (error) {
       // Give a cleaner error for unconfirmed email
       if (error.message.includes('Email not confirmed')) {
-        throw new Error('Please confirm your email first, or ask an admin to disable email confirmation.')
+        throw new Error('Please confirm your email first, or ask admin to disable email confirmation.')
       }
       throw error
     }
