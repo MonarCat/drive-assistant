@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase.js'
 
-const TIMEOUT_MS = 5000
-
 export function useClientAuth() {
   const [user, setUser]         = useState(null)
   const [session, setSession]   = useState(null)
@@ -11,95 +9,135 @@ export function useClientAuth() {
   const [loading, setLoading]   = useState(true)
 
   useEffect(() => {
-    // Hard timeout — always resolves
-    const timeout = setTimeout(() => {
-      console.warn('Client auth timeout — forcing loading false')
-      setLoading(false)
-    }, TIMEOUT_MS)
+    // Hard timeout — always resolves no matter what
+    const timeout = setTimeout(() => setLoading(false), 6000)
 
-    supabase.auth.getSession().then(async ({ data: { session: s }, error }) => {
+    // Check existing session first
+    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
       clearTimeout(timeout)
-      if (error || !s?.user) {
-        setLoading(false)
-        return
+      if (s?.user) {
+        setSession(s)
+        await hydrate(s.user)
       }
-      setSession(s)
-      await hydrate(s.user)
       setLoading(false)
     }).catch(() => {
       clearTimeout(timeout)
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
-      if (event === 'SIGNED_OUT') {
-        setUser(null); setProfile(null); setSession(null); setVehicles([])
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, s) => {
+        console.log('Auth event:', event)
+
+        if (event === 'SIGNED_IN') {
+          setSession(s)
+          await hydrate(s.user)
+          setLoading(false)
+        }
+
+        if (event === 'SIGNED_OUT') {
+          // Only sign out if we explicitly called signOut
+          // Ignore auto sign-outs from unconfirmed email
+          if (!s) {
+            setUser(null)
+            setProfile(null)
+            setSession(null)
+            setVehicles([])
+          }
+        }
+
+        if (event === 'TOKEN_REFRESHED') {
+          setSession(s)
+        }
+
+        if (event === 'USER_UPDATED') {
+          setSession(s)
+          if (s?.user) await hydrate(s.user)
+        }
       }
-      if (event === 'SIGNED_IN' && s?.user) {
-        setSession(s)
-        await hydrate(s.user)
-      }
-    })
+    )
 
     return () => { clearTimeout(timeout); subscription.unsubscribe() }
   }, [])
 
   async function hydrate(u) {
+    if (!u) return
+
     // Profile
     try {
-      const { data: p } = await supabase
+      const { data: p, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', u.id)
         .single()
 
-      if (p) {
-        setUser(u); setProfile(p)
+      if (p && !error) {
+        setUser(u)
+        setProfile(p)
       } else {
-        // Auto-create
-        const name = u.user_metadata?.full_name || u.email?.split('@')[0] || 'Driver'
+        // Create profile if missing
+        const name = u.user_metadata?.full_name
+          || u.email?.split('@')[0]
+          || 'Driver'
+
         const { data: newP } = await supabase
           .from('profiles')
-          .insert({
-            id: u.id, full_name: name,
-            phone: u.user_metadata?.phone || null,
-            role: 'driver', is_active: true,
-            clearance_level: 1,
-            avatar_initials: name[0].toUpperCase(),
-          })
-          .select().single()
+          .upsert({
+            id:               u.id,
+            full_name:        name,
+            phone:            u.user_metadata?.phone || null,
+            role:             'driver',
+            is_active:        true,
+            clearance_level:  1,
+            avatar_initials:  name[0].toUpperCase(),
+          }, { onConflict: 'id' })
+          .select()
+          .single()
+
         setUser(u)
         setProfile(newP || { id: u.id, full_name: name, role: 'driver' })
       }
-    } catch {
+    } catch (e) {
+      console.warn('Profile fetch failed:', e.message)
       // Never block — set bare minimum
       setUser(u)
-      setProfile({ id: u.id, full_name: u.email?.split('@')[0], role: 'driver' })
+      setProfile({
+        id:        u.id,
+        full_name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'Driver',
+        role:      'driver'
+      })
     }
 
-    // Vehicles — fail silently, don't block login
+    // Vehicles — fail silently
     try {
       const { data } = await supabase
         .from('vehicles')
         .select('*')
         .eq('owner_id', u.id)
       setVehicles(data || [])
-    } catch (e) {
-      console.warn('Vehicles fetch error (non-blocking):', e?.message)
-    }
+    } catch {}
   }
 
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
+    if (error) {
+      // Give a cleaner error for unconfirmed email
+      if (error.message.includes('Email not confirmed')) {
+        throw new Error('Please confirm your email first, or ask an admin to disable email confirmation.')
+      }
+      throw error
+    }
     return data
   }
 
   async function signUp({ email, password, full_name, phone }) {
     if (!full_name) throw new Error('Full name is required')
     if (password.length < 8) throw new Error('Password must be at least 8 characters')
+
     const { data, error } = await supabase.auth.signUp({
-      email, password,
+      email,
+      password,
       options: { data: { full_name, phone } }
     })
     if (error) throw error
@@ -115,7 +153,10 @@ export function useClientAuth() {
   }
 
   function signOut() {
-    setUser(null); setProfile(null); setSession(null); setVehicles([])
+    setUser(null)
+    setProfile(null)
+    setSession(null)
+    setVehicles([])
     supabase.auth.signOut()
   }
 
@@ -123,11 +164,11 @@ export function useClientAuth() {
     if (!user) return
     try {
       const { data } = await supabase
-        .from('vehicles').select('*').eq('owner_id', user.id)
+        .from('vehicles')
+        .select('*')
+        .eq('owner_id', user.id)
       setVehicles(data || [])
-    } catch (e) {
-      console.warn('refreshVehicles error (non-blocking):', e?.message)
-    }
+    } catch {}
   }
 
   return {
