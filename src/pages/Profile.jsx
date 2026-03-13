@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { User, Phone, Mail, Car, Edit2, CheckCircle, Loader, LogOut, Plus, Shield, ChevronLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
+import { MAKES, COLORS, YEARS, getModels } from '../utils/vehicleOptions.js'
+import { validatePlate, formatPlate, PLATE_HINT } from '../utils/plateValidation.js'
 
 export default function Profile({ user, profile, vehicles, onSignOut, onBack, onRefreshVehicles }) {
   const [tab, setTab]         = useState('profile') // 'profile' | 'vehicles' | 'security'
@@ -44,14 +46,15 @@ export default function Profile({ user, profile, vehicles, onSignOut, onBack, on
 
   async function registerVehicle(e) {
     e.preventDefault()
-    if (!vForm.plate.trim()) { setVErr('Number plate is required'); return }
+    const plateErr = validatePlate(vForm.plate)
+    if (plateErr) { setVErr(plateErr); return }
     setVBusy(true); setVErr('')
     try {
       const { error } = await supabase
         .from('vehicles')
         .insert({
           owner_id:  user.id,
-          plate:     vForm.plate.toUpperCase().trim(),
+          plate:     formatPlate(vForm.plate),
           make:      vForm.make,
           model:     vForm.model,
           year:      vForm.year ? Number(vForm.year) : null,
@@ -75,7 +78,7 @@ export default function Profile({ user, profile, vehicles, onSignOut, onBack, on
     body:    { maxWidth: 480, margin: '0 auto', padding: '24px 20px' },
     card:    { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '18px 16px', marginBottom: 14 },
     label:   { fontSize: 10, letterSpacing: 2, color: 'rgba(255,255,255,0.3)', marginBottom: 12 },
-    inp:     { width: '100%', background: 'rgba(0,212,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '10px 13px', color: '#fff', fontFamily: "'Exo 2',sans-serif", fontSize: 13, outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' },
+    inp:     { width: '100%', background: 'rgba(0,212,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '10px 13px', color: '#fff', fontFamily: "'Exo 2',sans-serif", fontSize: 13, outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box', appearance: 'none', WebkitAppearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.25)'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', paddingRight: 32 },
     tab:     (active) => ({ padding: '8px 16px', background: active ? 'rgba(0,212,255,0.1)' : 'transparent', border: active ? '1px solid rgba(0,212,255,0.3)' : '1px solid transparent', borderRadius: 6, color: active ? '#00d4ff' : 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: active ? 600 : 400, cursor: 'pointer', transition: 'all 0.15s' }),
     btn:     (variant = 'primary') => ({
       padding: '11px 16px', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
@@ -186,18 +189,76 @@ export default function Profile({ user, profile, vehicles, onSignOut, onBack, on
               <div style={{ ...S.card, marginBottom: 14 }}>
                 <div style={{ ...S.label, marginBottom: 14 }}>REGISTER VEHICLE</div>
                 <form onSubmit={registerVehicle}>
-                  {[
-                    ['Number Plate *', 'plate', 'text',   'KCA 123A'],
-                    ['Make',           'make',  'text',   'Toyota'],
-                    ['Model',          'model', 'text',   'Hilux'],
-                    ['Year',           'year',  'number', '2020', { min: 1900, max: new Date().getFullYear() + 1 }],
-                    ['Color',          'color', 'text',   'White'],
-                  ].map(([label, k, type, ph, extra]) => (
-                    <div key={k} style={{ marginBottom: 10 }}>
-                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>{label}</div>
-                      <input style={S.inp} type={type} value={vForm[k]} onChange={e => setV(k, e.target.value)} placeholder={ph} {...(extra || {})} />
-                    </div>
-                  ))}
+
+                  {/* Number Plate */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>Number Plate *</div>
+                    <input
+                      style={S.inp}
+                      value={vForm.plate}
+                      onChange={e => setV('plate', e.target.value)}
+                      onBlur={e => setV('plate', formatPlate(e.target.value))}
+                      placeholder={PLATE_HINT}
+                    />
+                    {vForm.plate && (() => {
+                      const plateErr = validatePlate(vForm.plate)
+                      return plateErr ? <div style={{ fontSize: 10, color: '#ff2d44', marginTop: 3 }}>{plateErr}</div> : null
+                    })()}
+                  </div>
+
+                  {/* Make */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>Make</div>
+                    <select
+                      style={S.inp}
+                      value={vForm.make}
+                      onChange={e => { setV('make', e.target.value); setV('model', '') }}
+                    >
+                      <option value="">Select make…</option>
+                      {MAKES.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Model */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>Model</div>
+                    <select
+                      style={S.inp}
+                      value={vForm.model}
+                      onChange={e => setV('model', e.target.value)}
+                      disabled={!vForm.make}
+                    >
+                      <option value="">Select model…</option>
+                      {getModels(vForm.make).map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Year */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>Year</div>
+                    <select
+                      style={S.inp}
+                      value={vForm.year}
+                      onChange={e => setV('year', e.target.value)}
+                    >
+                      <option value="">Select year…</option>
+                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Color */}
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 5 }}>Color</div>
+                    <select
+                      style={S.inp}
+                      value={vForm.color}
+                      onChange={e => setV('color', e.target.value)}
+                    >
+                      <option value="">Select color…</option>
+                      {COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+
                   {vErr && (
                     <div style={{ marginBottom: 10, padding: '7px 11px', background: 'rgba(255,45,68,0.08)', border: '1px solid rgba(255,45,68,0.3)', borderRadius: 5, fontSize: 11, color: '#ff2d44' }}>
                       ⚠ {vErr}
