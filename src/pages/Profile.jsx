@@ -52,12 +52,20 @@ export default function Profile({ user, profile, vehicles, onSignOut, onBack, on
     e.preventDefault()
     setVErr('')
 
-    if (!vForm.category) { setVErr('Select a registration category'); return }
+    // Validate category first
+    if (!vForm.category) {
+      setVErr('Select a registration category')
+      return
+    }
 
+    // Validate plate format against selected category
     const validation = validatePlate(vForm.plate, vForm.category)
-    if (!validation.valid) { setVErr(validation.error); return }
+    if (!validation.valid) {
+      setVErr(validation.error)
+      return
+    }
 
-    // Check duplicate
+    // Check for duplicate plate
     const { data: existing } = await supabase
       .from('vehicles')
       .select('id')
@@ -71,15 +79,16 @@ export default function Profile({ user, profile, vehicles, onSignOut, onBack, on
 
     setVBusy(true)
     try {
-      const { data: newVehicle, error } = await supabase
+      // 1. Insert the vehicle
+      const { data: newVehicle, error: vError } = await supabase
         .from('vehicles')
         .insert({
           owner_id:              user.id,
           plate:                 validation.plate,
-          make:                  vForm.make,
-          model:                 vForm.model,
-          year:                  vForm.year ? Number(vForm.year) : null,
-          color:                 vForm.color,
+          make:                  vForm.make   || null,
+          model:                 vForm.model  || null,
+          year:                  vForm.year   ? Number(vForm.year) : null,
+          color:                 vForm.color  || null,
           vehicle_status:        'parked',
           is_active:             true,
           verification_status:   'pending',
@@ -88,19 +97,39 @@ export default function Profile({ user, profile, vehicles, onSignOut, onBack, on
         })
         .select()
         .single()
-      if (error) throw error
-      if (newVehicle?.id) {
-        fetch('https://da-admin.netlify.app/api/notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vehicle_id: newVehicle.id, owner_id: user.id })
-        }).catch((err) => console.error('Admin notification failed:', err)) // fire and forget — notification failure doesn't block registration
-      }
+
+      if (vError) throw vError
+
+      // 2. Write admin notification directly to Supabase
+      //    No cross-origin fetch needed — anon key has insert permission via RLS policy
+      const catLabel = {
+        private:'Private', government:'Government', diplomat:'Diplomat',
+        police:'Police', military:'KDF', psv:'PSV',
+        ngo:'NGO', foreign:'Foreign', commercial:'Commercial',
+      }[vForm.category] || vForm.category
+
+      await supabase.from('notifications').insert({
+        type:         'vehicle_registered',
+        title:        `New vehicle: ${validation.plate}`,
+        body:         `${profile?.full_name || 'A driver'} registered a ${vForm.year || ''} ${vForm.make || ''} ${vForm.model || ''} (${catLabel}) — awaiting verification`.trim(),
+        vehicle_id:   newVehicle.id,
+        from_user_id: user.id,
+        to_role:      'admin',
+        read:         false,
+      })
+
+      // 3. Reset form and refresh
       setAddingVehicle(false)
       setVForm(EMPTY_VFORM)
-      await onRefreshVehicles()
-    } catch (e) { setVErr(e.message) }
-    finally { setVBusy(false) }
+      if (onRefreshVehicles) await onRefreshVehicles()
+
+    } catch (err) {
+      // Surface the actual Supabase error — no more silent failures
+      console.error('Vehicle registration error:', err)
+      setVErr(err.message || 'Registration failed. Please try again.')
+    } finally {
+      setVBusy(false)
+    }
   }
 
   // ── Styles ──────────────────────────────────────────────
