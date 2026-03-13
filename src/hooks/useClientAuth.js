@@ -11,22 +11,38 @@ export function useClientAuth() {
   const [isDemo, setIsDemo]     = useState(false)
 
   useEffect(() => {
-    const timeout = setTimeout(() => setLoading(false), 6000)
+    // Hard timeout — loading NEVER hangs beyond 8s
+    const timeout = setTimeout(() => {
+      console.warn('Auth hard timeout hit')
+      setLoading(false)
+    }, 8000)
 
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+      if (s?.user) {
+        setSession(s)
+        await hydrate(s.user)
+      }
       clearTimeout(timeout)
-      if (s?.user) { setSession(s); await hydrate(s.user) }
       setLoading(false)
-    }).catch(() => { clearTimeout(timeout); setLoading(false) })
+    }).catch(() => {
+      clearTimeout(timeout)
+      setLoading(false)
+    })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, s) => {
         console.log('Auth event:', event)
         if (event === 'SIGNED_IN' && s?.user) {
-          setSession(s); await hydrate(s.user); setLoading(false)
+          setSession(s)
+          await hydrate(s.user)
+          setLoading(false) // ← always resolve after sign-in
         }
-        if (event === 'SIGNED_OUT' && !isDemo) {
-          setUser(null); setProfile(null); setSession(null); setVehicles([])
+        if (event === 'SIGNED_OUT') {
+          if (!isDemo) {
+            setUser(null); setProfile(null)
+            setSession(null); setVehicles([])
+          }
+          setLoading(false)
         }
       }
     )
@@ -35,39 +51,51 @@ export function useClientAuth() {
   }, [])
 
   async function hydrate(u) {
+    // Never throw — always resolve gracefully
     try {
-      const { data: p } = await supabase
+      const { data: p, error } = await supabase
         .from('profiles').select('*').eq('id', u.id).single()
 
-      if (p) { setUser(u); setProfile(p) }
-      else {
+      if (p && !error) {
+        setUser(u); setProfile(p)
+      } else {
+        // Profile missing — create it inline
         const name = u.user_metadata?.full_name || u.email?.split('@')[0] || 'Driver'
-        const { data: newP } = await supabase
-          .from('profiles')
-          .upsert({ id:u.id, full_name:name, phone:u.user_metadata?.phone||null, role:'driver', is_active:true, clearance_level:1, avatar_initials:name[0].toUpperCase() }, { onConflict:'id' })
-          .select().single()
+        await supabase.from('profiles').upsert({
+          id: u.id,
+          full_name: name,
+          phone: u.user_metadata?.phone || null,
+          role: 'driver',
+          is_active: true,
+          clearance_level: 1,
+          avatar_initials: name[0].toUpperCase(),
+        }, { onConflict: 'id' })
         setUser(u)
-        setProfile(newP || { id:u.id, full_name:name, role:'driver' })
+        setProfile({ id: u.id, full_name: name, role: 'driver', clearance_level: 1 })
       }
     } catch {
+      // Even if profile fails entirely, sign the user in with minimal data
       setUser(u)
-      setProfile({ id:u.id, full_name:u.email?.split('@')[0], role:'driver' })
+      setProfile({ id: u.id, full_name: u.email?.split('@')[0] || 'Driver', role: 'driver' })
     }
 
+    // Load vehicles — silently skip if RLS blocks
     try {
       const { data } = await supabase
         .from('vehicles').select('*').eq('owner_id', u.id)
       setVehicles(data || [])
-    } catch {}
+    } catch {
+      setVehicles([])
+    }
   }
 
-  // ── DEMO MODE — completely isolated, no DB calls ──────
+  // ── DEMO MODE — zero DB contact ──────────────────────
   function enterDemo() {
     setIsDemo(true)
-    setLoading(false)
-    setUser({ id:'demo', email:'demo@da.local' })
+    setUser({ id: 'demo', email: 'demo@da.local' })
     setProfile(DEMO_PROFILE)
-    setVehicles(DEMO_VEHICLES.slice(0, 2)) // show 2 demo vehicles for driver
+    setVehicles(DEMO_VEHICLES.slice(0, 2))
+    setLoading(false)
   }
 
   function exitDemo() {
@@ -77,28 +105,33 @@ export function useClientAuth() {
   }
 
   async function signIn(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      if (error.message.includes('Email not confirmed'))
-        throw new Error('Please confirm your email first.')
-      throw error
+    setLoading(true)
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
+      return data
+    } catch (e) {
+      setLoading(false)
+      if (e.message.includes('Email not confirmed'))
+        throw new Error('Please check your email and confirm your account first.')
+      throw e
     }
-    return data
   }
 
   async function signUp({ email, password, full_name, phone }) {
-    if (!full_name) throw new Error('Full name is required')
+    if (!full_name?.trim()) throw new Error('Full name is required')
     if (password.length < 8) throw new Error('Password must be at least 8 characters')
     const { data, error } = await supabase.auth.signUp({
-      email, password, options: { data: { full_name, phone } }
+      email, password,
+      options: { data: { full_name: full_name.trim(), phone: phone || null } }
     })
     if (error) throw error
     return data
   }
 
   async function resetPassword(email) {
-    if (!email) return
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    if (!email?.trim()) throw new Error('Enter your email first')
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: 'https://da-app.netlify.app/reset-password'
     })
     if (error) throw error
@@ -111,7 +144,7 @@ export function useClientAuth() {
   }
 
   async function refreshVehicles() {
-    if (isDemo || !user) return
+    if (isDemo || !user?.id || user.id === 'demo') return
     try {
       const { data } = await supabase
         .from('vehicles').select('*').eq('owner_id', user.id)
@@ -122,7 +155,7 @@ export function useClientAuth() {
   return {
     user, session, profile, vehicles, loading, isDemo,
     isAuthenticated: !!user,
-    signIn, signUp, signOut, resetPassword, refreshVehicles,
-    enterDemo, exitDemo,
+    signIn, signUp, signOut, resetPassword,
+    refreshVehicles, enterDemo, exitDemo,
   }
 }
