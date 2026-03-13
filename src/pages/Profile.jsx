@@ -71,7 +71,7 @@ export default function Profile({ user, profile, vehicles, onSignOut, onBack, on
 
     setVBusy(true)
     try {
-      const { error } = await supabase
+      const { data: newVehicle, error } = await supabase
         .from('vehicles')
         .insert({
           owner_id:              user.id,
@@ -86,7 +86,16 @@ export default function Profile({ user, profile, vehicles, onSignOut, onBack, on
           plate_format_valid:    true,
           registration_category: vForm.category,
         })
+        .select()
+        .single()
       if (error) throw error
+      if (newVehicle?.id) {
+        fetch('https://da-admin.netlify.app/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vehicle_id: newVehicle.id, owner_id: user.id })
+        }).catch((err) => console.error('Admin notification failed:', err)) // fire and forget — notification failure doesn't block registration
+      }
       setAddingVehicle(false)
       setVForm(EMPTY_VFORM)
       await onRefreshVehicles()
