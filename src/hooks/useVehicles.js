@@ -1,48 +1,46 @@
-import { useState, useEffect, useCallback } from 'react'
-import { MOCK_VEHICLES, moveVehicle } from '../utils/vehicleData'
+import { useState, useEffect, useRef } from 'react'
+import { supabase } from '../lib/supabase.js'
 
-export function useVehicles() {
-  const [vehicles, setVehicles] = useState(MOCK_VEHICLES)
-  const [selectedId, setSelectedId] = useState(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+export function useVehicles(userId) {
+  const [vehicles, setVehicles]   = useState([])
+  const [loading, setLoading]     = useState(true)
+  const channelRef = useRef(null)
 
-  // Live movement engine
   useEffect(() => {
-    const interval = setInterval(() => {
-      setVehicles(prev => prev.map(moveVehicle))
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [])
+    if (!userId) { setLoading(false); return }
 
-  const handleSelect = useCallback((id) => {
-    setSelectedId(id === null ? null : (prev => (prev === id ? null : id)))
-  }, [])
+    // Initial load
+    loadVehicles()
 
-  const filteredVehicles = vehicles.filter(v => {
-    const matchesSearch = !searchQuery ||
-      v.plate.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.owner.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.route.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesFilter = statusFilter === 'all' || v.status === statusFilter
-    return matchesSearch && matchesFilter
-  })
+    // Realtime subscription — update vehicle positions as they come in
+    channelRef.current = supabase
+      .channel(`vehicles:${userId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'vehicles',
+        filter: `owner_id=eq.${userId}`
+      }, () => loadVehicles())
+      .subscribe()
 
-  const selectedVehicle = vehicles.find(v => v.id === selectedId) || null
+    return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current)
+    }
+  }, [userId])
 
-  const sosVehicles = vehicles.filter(v => v.status === 'sos')
+  async function loadVehicles() {
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('owner_id', userId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
 
-  return {
-    vehicles,
-    filteredVehicles,
-    selectedId,
-    selectedVehicle,
-    searchQuery,
-    setSearchQuery,
-    statusFilter,
-    setStatusFilter,
-    handleSelect,
-    sosVehicles,
+      if (!error && data) setVehicles(data)
+    } catch {}
+    setLoading(false)
   }
+
+  return { vehicles, loading, refresh: loadVehicles }
 }
