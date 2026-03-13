@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase.js'
+import { DEMO_VEHICLES, DEMO_PROFILE } from '../utils/vehicleOptions.js'
 
 export function useClientAuth() {
   const [user, setUser]         = useState(null)
@@ -7,53 +8,25 @@ export function useClientAuth() {
   const [profile, setProfile]   = useState(null)
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading]   = useState(true)
+  const [isDemo, setIsDemo]     = useState(false)
 
   useEffect(() => {
-    // Hard timeout — always resolves no matter what
     const timeout = setTimeout(() => setLoading(false), 6000)
 
-    // Check existing session first
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
       clearTimeout(timeout)
-      if (s?.user) {
-        setSession(s)
-        await hydrate(s.user)
-      }
+      if (s?.user) { setSession(s); await hydrate(s.user) }
       setLoading(false)
-    }).catch(() => {
-      clearTimeout(timeout)
-      setLoading(false)
-    })
+    }).catch(() => { clearTimeout(timeout); setLoading(false) })
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, s) => {
         console.log('Auth event:', event)
-
-        if (event === 'SIGNED_IN') {
-          setSession(s)
-          await hydrate(s.user)
-          setLoading(false)
+        if (event === 'SIGNED_IN' && s?.user) {
+          setSession(s); await hydrate(s.user); setLoading(false)
         }
-
-        if (event === 'SIGNED_OUT') {
-          // Only sign out if we explicitly called signOut
-          // Ignore auto sign-outs from unconfirmed email
-          if (!s) {
-            setUser(null)
-            setProfile(null)
-            setSession(null)
-            setVehicles([])
-          }
-        }
-
-        if (event === 'TOKEN_REFRESHED') {
-          setSession(s)
-        }
-
-        if (event === 'USER_UPDATED') {
-          setSession(s)
-          if (s?.user) await hydrate(s.user)
+        if (event === 'SIGNED_OUT' && !isDemo) {
+          setUser(null); setProfile(null); setSession(null); setVehicles([])
         }
       }
     )
@@ -62,70 +35,52 @@ export function useClientAuth() {
   }, [])
 
   async function hydrate(u) {
-    if (!u) return
-
-    // Profile
     try {
-      const { data: p, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', u.id)
-        .single()
+      const { data: p } = await supabase
+        .from('profiles').select('*').eq('id', u.id).single()
 
-      if (p && !error) {
-        setUser(u)
-        setProfile(p)
-      } else {
-        // Create profile if missing
-        const name = u.user_metadata?.full_name
-          || u.email?.split('@')[0]
-          || 'Driver'
-
+      if (p) { setUser(u); setProfile(p) }
+      else {
+        const name = u.user_metadata?.full_name || u.email?.split('@')[0] || 'Driver'
         const { data: newP } = await supabase
           .from('profiles')
-          .upsert({
-            id:               u.id,
-            full_name:        name,
-            phone:            u.user_metadata?.phone || null,
-            role:             'driver',
-            is_active:        true,
-            clearance_level:  1,
-            avatar_initials:  name[0].toUpperCase(),
-          }, { onConflict: 'id' })
-          .select()
-          .single()
-
+          .upsert({ id:u.id, full_name:name, phone:u.user_metadata?.phone||null, role:'driver', is_active:true, clearance_level:1, avatar_initials:name[0].toUpperCase() }, { onConflict:'id' })
+          .select().single()
         setUser(u)
-        setProfile(newP || { id: u.id, full_name: name, role: 'driver' })
+        setProfile(newP || { id:u.id, full_name:name, role:'driver' })
       }
-    } catch (e) {
-      console.warn('Profile fetch failed:', e.message)
-      // Never block — set bare minimum
+    } catch {
       setUser(u)
-      setProfile({
-        id:        u.id,
-        full_name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'Driver',
-        role:      'driver'
-      })
+      setProfile({ id:u.id, full_name:u.email?.split('@')[0], role:'driver' })
     }
 
-    // Vehicles — fail silently
     try {
       const { data } = await supabase
-        .from('vehicles')
-        .select('*')
-        .eq('owner_id', u.id)
+        .from('vehicles').select('*').eq('owner_id', u.id)
       setVehicles(data || [])
     } catch {}
+  }
+
+  // ── DEMO MODE — completely isolated, no DB calls ──────
+  function enterDemo() {
+    setIsDemo(true)
+    setLoading(false)
+    setUser({ id:'demo', email:'demo@da.local' })
+    setProfile(DEMO_PROFILE)
+    setVehicles(DEMO_VEHICLES.slice(0, 2)) // show 2 demo vehicles for driver
+  }
+
+  function exitDemo() {
+    setIsDemo(false)
+    setUser(null); setProfile(null)
+    setSession(null); setVehicles([])
   }
 
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      // Give a cleaner error for unconfirmed email
-      if (error.message.includes('Email not confirmed')) {
-        throw new Error('Please confirm your email first, or ask admin to disable email confirmation.')
-      }
+      if (error.message.includes('Email not confirmed'))
+        throw new Error('Please confirm your email first.')
       throw error
     }
     return data
@@ -134,11 +89,8 @@ export function useClientAuth() {
   async function signUp({ email, password, full_name, phone }) {
     if (!full_name) throw new Error('Full name is required')
     if (password.length < 8) throw new Error('Password must be at least 8 characters')
-
     const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name, phone } }
+      email, password, options: { data: { full_name, phone } }
     })
     if (error) throw error
     return data
@@ -153,27 +105,24 @@ export function useClientAuth() {
   }
 
   function signOut() {
-    setUser(null)
-    setProfile(null)
-    setSession(null)
-    setVehicles([])
+    if (isDemo) { exitDemo(); return }
+    setUser(null); setProfile(null); setSession(null); setVehicles([])
     supabase.auth.signOut()
   }
 
   async function refreshVehicles() {
-    if (!user) return
+    if (isDemo || !user) return
     try {
       const { data } = await supabase
-        .from('vehicles')
-        .select('*')
-        .eq('owner_id', user.id)
+        .from('vehicles').select('*').eq('owner_id', user.id)
       setVehicles(data || [])
     } catch {}
   }
 
   return {
-    user, session, profile, vehicles, loading,
+    user, session, profile, vehicles, loading, isDemo,
     isAuthenticated: !!user,
-    signIn, signUp, signOut, resetPassword, refreshVehicles
+    signIn, signUp, signOut, resetPassword, refreshVehicles,
+    enterDemo, exitDemo,
   }
 }
