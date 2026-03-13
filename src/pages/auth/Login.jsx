@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Eye, EyeOff, Loader, Radio } from 'lucide-react'
 
-export default function Login({ onLogin, onSignUp, onForgot }) {
+export default function Login({ onLogin, onSignUp, onForgot, onDemo }) {
   const [email, setEmail] = useState('')
   const [pw, setPw]       = useState('')
   const [show, setShow]   = useState(false)
@@ -100,6 +100,20 @@ export default function Login({ onLogin, onSignUp, onForgot }) {
             </div>
 
           </form>
+
+          {/* Demo mode entry */}
+          <div style={{ marginTop: 18, borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 16, textAlign: 'center' }}>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: 2, marginBottom: 10 }}>OR</div>
+            <button
+              type="button"
+              onClick={onDemo || (() => {})}
+              style={{ width: '100%', padding: '11px 0', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: 600, letterSpacing: 1, cursor: 'pointer', boxSizing: 'border-box', transition: 'border-color 0.2s, color 0.2s' }}
+              onMouseEnter={e => { e.target.style.borderColor = 'rgba(0,212,255,0.4)'; e.target.style.color = '#00d4ff' }}
+              onMouseLeave={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)'; e.target.style.color = 'rgba(255,255,255,0.55)' }}
+            >
+              Try Demo Mode
+            </button>
+          </div>
         </div>
       </div>
     </div>
