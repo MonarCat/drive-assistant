@@ -191,8 +191,17 @@ export default function Dashboard({ user, profile, vehicles, onSignOut, onOpenPr
   )
 }
 
+const VERIFICATION_CONFIG = {
+  verified:     { color: '#00ff9d', bg: 'rgba(0,255,157,0.08)', border: 'rgba(0,255,157,0.3)',  icon: '✔', label: 'VERIFIED'              },
+  pending:      { color: '#ffd700', bg: 'rgba(255,215,0,0.08)',  border: 'rgba(255,215,0,0.3)',  icon: '⏳', label: 'PENDING VERIFICATION'  },
+  under_review: { color: '#00d4ff', bg: 'rgba(0,212,255,0.08)',  border: 'rgba(0,212,255,0.3)', icon: '🔍', label: 'UNDER REVIEW'           },
+  rejected:     { color: '#ff2d44', bg: 'rgba(255,45,68,0.08)',  border: 'rgba(255,45,68,0.3)', icon: '✖', label: 'VERIFICATION REJECTED'  },
+}
+
 function VehicleCard({ vehicle: v, expanded }) {
   const color = STATUS_COLOR[v.status] || '#444'
+  const verStatus = (v.verification_status || 'pending').toLowerCase()
+  const ver = VERIFICATION_CONFIG[verStatus] || VERIFICATION_CONFIG.pending
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -206,19 +215,34 @@ function VehicleCard({ vehicle: v, expanded }) {
         </div>
       </div>
       {expanded && (
-        <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {[
-            ['Speed',  v.speed ? `${v.speed} km/h` : '—'],
-            ['Fuel',   v.fuel_level != null ? `${v.fuel_level}%` : '—'],
-            ['Color',  v.color || '—'],
-            ['Verify', v.verification_status || 'pending'],
-          ].map(([label, val]) => (
-            <div key={label} style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
-              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 3, fontFamily: "'Share Tech Mono', monospace" }}>{label}</div>
-              <div style={{ fontSize: 12, color: '#fff' }}>{val}</div>
+        <>
+          <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            {[
+              ['Speed', v.speed ? `${v.speed} km/h` : '—'],
+              ['Fuel',  v.fuel_level != null ? `${v.fuel_level}%` : '—'],
+              ['Color', v.color || '—'],
+            ].map(([label, val]) => (
+              <div key={label} style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
+                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 3, fontFamily: "'Share Tech Mono', monospace" }}>{label}</div>
+                <div style={{ fontSize: 12, color: '#fff' }}>{val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Verification status banner */}
+          <div style={{ marginTop: 10, padding: '10px 12px', background: ver.bg, border: `1px solid ${ver.border}`, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 14 }}>{ver.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontFamily: "'Share Tech Mono', monospace", letterSpacing: 1, marginBottom: 2 }}>
+                VEHICLE VERIFICATION
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: ver.color, fontFamily: "'Share Tech Mono', monospace", letterSpacing: 1 }}>
+                {ver.label}
+              </div>
             </div>
-          ))}
-        </div>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: ver.color, boxShadow: `0 0 6px ${ver.color}` }} />
+          </div>
+        </>
       )}
     </div>
   )
