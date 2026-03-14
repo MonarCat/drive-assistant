@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet'
 import { Radio, User, AlertTriangle, MessageSquare, Navigation, LogOut, Menu, X } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
+import { useTelemetry } from '../hooks/useTelemetry.js'
 
 const STATUS_COLOR = {
   moving:  '#00ff9d',
@@ -11,7 +12,8 @@ const STATUS_COLOR = {
   offline: '#444',
 }
 
-export default function Dashboard({ user, profile, vehicles, onSignOut, onOpenProfile }) {
+export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, onOpenProfile }) {
+  useTelemetry(user, vehicles, isDemo)
   const [selected, setSelected]   = useState(null)
   const [sidebarOpen, setSidebar] = useState(false)
   const [sosVehicles, setSos]     = useState([])

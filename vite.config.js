@@ -7,26 +7,32 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons/*.png'],
+      includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'D.A — Drive Assistant',
-        short_name: 'Drive Assistant',
-        description: 'Real-time vehicular mesh intelligence network',
-        theme_color: '#050a0f',
-        background_color: '#050a0f',
-        display: 'standalone',
-        start_url: '/',
+        name:             'D.A — Drive Assistant',
+        short_name:       'D.A',
+        description:      'Peer-to-peer vehicular mesh intelligence network',
+        theme_color:      '#00d4ff',
+        background_color: '#0a0e1a',
+        display:          'standalone',
+        orientation:      'portrait-primary',
+        start_url:        '/',
         icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+        ],
+      },
+      workbox: {
+        runtimeCaching: [
           {
-            src: 'icons/pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'da-fonts', expiration: { maxAgeSeconds: 60 * 60 * 24 * 365 } },
           },
           {
-            src: 'icons/pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable',
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest/,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'da-api', expiration: { maxAgeSeconds: 60 * 5 } },
           },
         ],
       },
@@ -34,5 +40,16 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react':    ['react', 'react-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-leaflet':  ['leaflet', 'react-leaflet'],
+        },
+      },
+    },
   },
 })
