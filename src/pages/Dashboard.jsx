@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet'
-import { Radio, User, AlertTriangle, MessageSquare, Navigation, LogOut, Menu, X } from 'lucide-react'
+import { Radio, User, AlertTriangle, MessageSquare, Navigation, LogOut, Menu, X, Bell } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import { useTelemetry } from '../hooks/useTelemetry.js'
 import V2VPanel from '../components/V2VPanel.jsx'
@@ -13,7 +13,7 @@ const STATUS_COLOR = {
   offline: '#444',
 }
 
-export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, onOpenProfile }) {
+export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, onOpenProfile, onOpenInbox }) {
   useTelemetry(user, vehicles, isDemo)
   const [selected, setSelected]   = useState(null)
   const [sidebarOpen, setSidebar] = useState(false)
@@ -56,6 +56,13 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: "'Share Tech Mono', monospace" }}>
             {vehicles.length} VEHICLE{vehicles.length !== 1 ? 'S' : ''}
           </div>
+
+          {/* Inbox */}
+          {onOpenInbox && (
+            <button onClick={onOpenInbox} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <Bell size={14} color="#00d4ff" />
+            </button>
+          )}
 
           {/* Avatar / profile */}
           <button onClick={onOpenProfile} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#00d4ff', cursor: 'pointer' }}>
