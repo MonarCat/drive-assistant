@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet'
 import { Radio, User, AlertTriangle, MessageSquare, Navigation, LogOut, Menu, X } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import { useTelemetry } from '../hooks/useTelemetry.js'
+import V2VPanel from '../components/V2VPanel.jsx'
 
 const STATUS_COLOR = {
   moving:  '#00ff9d',
@@ -119,6 +120,9 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
               )}
             </MapContainer>
           )}
+
+          {/* V2V Panel */}
+          <V2VPanel user={user} vehicles={vehicles} isDemo={isDemo} />
 
           {/* No vehicles message */}
           {vehicles.length === 0 && (
