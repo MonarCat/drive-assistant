@@ -3,7 +3,8 @@ import { useClientAuth } from './hooks/useClientAuth.js'
 import Login     from './pages/auth/Login.jsx'
 import SignUp    from './pages/auth/SignUp.jsx'
 import Dashboard from './pages/Dashboard.jsx'
-import Profile   from './pages/Profile.jsx'
+import Profile   from './components/Profile'
+import UserInbox from './components/UserInbox'
  
 export default function App() {
   const { user, profile, vehicles, loading, isDemo, signIn, signUp, signOut, resetPassword, refreshVehicles, enterDemo } = useClientAuth()
@@ -28,12 +29,16 @@ export default function App() {
   }
  
   if (page === 'profile') return (
-    <Profile user={user} profile={profile} vehicles={vehicles} isDemo={isDemo}
-      onSignOut={signOut} onBack={() => setPage('dashboard')} onRefreshVehicles={refreshVehicles} />
+    <Profile user={user} onBack={() => setPage('dashboard')} />
   )
- 
+
+  if (page === 'inbox') return (
+    <UserInbox user={user} onBack={() => setPage('dashboard')} />
+  )
+
   return (
     <Dashboard user={user} profile={profile} vehicles={vehicles} isDemo={isDemo}
-      onSignOut={signOut} onRefreshVehicles={refreshVehicles} onOpenProfile={() => setPage('profile')} />
+      onSignOut={signOut} onRefreshVehicles={refreshVehicles} onOpenProfile={() => setPage('profile')}
+      onOpenInbox={() => setPage('inbox')} />
   )
 }

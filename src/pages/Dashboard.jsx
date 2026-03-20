@@ -13,7 +13,7 @@ const STATUS_COLOR = {
   offline: '#444',
 }
 
-export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, onOpenProfile }) {
+export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, onOpenProfile, onOpenInbox }) {
   useTelemetry(user, vehicles, isDemo)
   const [selected, setSelected]   = useState(null)
   const [sidebarOpen, setSidebar] = useState(false)
@@ -56,6 +56,13 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: "'Share Tech Mono', monospace" }}>
             {vehicles.length} VEHICLE{vehicles.length !== 1 ? 'S' : ''}
           </div>
+
+          {/* Inbox */}
+          {onOpenInbox && (
+            <button onClick={onOpenInbox} title="Inbox" style={{ width: 30, height: 30, borderRadius: 4, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <MessageSquare size={14} color="rgba(255,255,255,0.45)" />
+            </button>
+          )}
 
           {/* Avatar / profile */}
           <button onClick={onOpenProfile} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#00d4ff', cursor: 'pointer' }}>
