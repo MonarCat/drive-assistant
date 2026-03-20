@@ -35,7 +35,11 @@ export default function App() {
   if (page === 'inbox') return (
     <UserInbox user={user} onBack={() => setPage('dashboard')} />
   )
- 
+
+  if (page === 'inbox') return (
+    <UserInbox user={user} onBack={() => setPage('dashboard')} />
+  )
+
   return (
     <Dashboard user={user} profile={profile} vehicles={vehicles} isDemo={isDemo}
       onSignOut={signOut} onRefreshVehicles={refreshVehicles}

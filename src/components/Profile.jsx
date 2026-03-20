@@ -70,7 +70,7 @@ const emptyForm = {
   fleet_id: '',
 };
 
-export default function Profile({ user }) {
+export default function Profile({ user, onBack }) {
   const [form, setForm]               = useState(emptyForm);
   const [errors, setErrors]           = useState({});
   const [registration, setReg]        = useState(null);
@@ -240,7 +240,21 @@ export default function Profile({ user }) {
   return (
     <div style={S.wrap}>
       <div style={S.header}>
-        <div style={S.title}>Vehicle Registration</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <div style={S.title}>Vehicle Registration</div>
+          {onBack && (
+            <button
+              onClick={onBack}
+              style={{
+                padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)',
+                background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
+                fontWeight: 600, fontSize: '13px',
+              }}
+            >
+              ← Back
+            </button>
+          )}
+        </div>
         <div style={S.subtitle}>Registered vehicles are visible to the D.A mesh network</div>
       </div>
 
