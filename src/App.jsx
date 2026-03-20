@@ -29,8 +29,7 @@ export default function App() {
   }
  
   if (page === 'profile') return (
-    <Profile user={user} profile={profile} vehicles={vehicles} isDemo={isDemo}
-      onSignOut={signOut} onBack={() => setPage('dashboard')} onRefreshVehicles={refreshVehicles} />
+    <Profile user={user} onBack={() => setPage('dashboard')} />
   )
  
   if (page === 'inbox') return (
