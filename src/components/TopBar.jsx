@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import ThemeToggle from './ThemeToggle'
 
 export default function TopBar({ vehicles, searchQuery, setSearchQuery, profile, onShowProfile }) {
   const [clock, setClock] = useState(new Date())
@@ -100,6 +101,9 @@ export default function TopBar({ vehicles, searchQuery, setSearchQuery, profile,
           <span className="animate-pulse-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent2)', display: 'inline-block' }} />
           <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 10, color: 'var(--accent2)' }}>LIVE</span>
         </div>
+
+        {/* Theme toggle */}
+        <ThemeToggle />
 
         {/* Profile button */}
         {onShowProfile && (
