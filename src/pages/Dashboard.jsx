@@ -133,6 +133,8 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
               </button>
             </div>
           )}
+
+          <V2VPanel user={user} vehicles={vehicles} isDemo={isDemo} />
         </div>
 
         {/* VEHICLE SIDEBAR */}
