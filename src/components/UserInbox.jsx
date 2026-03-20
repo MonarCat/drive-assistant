@@ -1,5 +1,5 @@
-// da-app/src/components/UserInbox.jsx
-// Real-time notification inbox for regular users
+// src/components/UserInbox.jsx
+// Real-time user inbox — notifications for vehicle verification, fleet requests, etc.
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -8,10 +8,10 @@ const S = {
   wrap: { padding: '24px', background: 'var(--bg-primary)', minHeight: '100vh', color: 'var(--text-primary)' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' },
   title: { fontSize: '22px', fontWeight: 700, letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '10px' },
-  liveChip: {
-    fontSize: '11px', fontWeight: 700, padding: '2px 8px',
-    borderRadius: '4px', background: 'var(--success)', color: '#fff',
-    animation: 'blink 2s ease-in-out infinite',
+  backBtn: {
+    padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)',
+    background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
+    fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px',
   },
   card: (unread) => ({
     background: unread ? 'var(--accent-glow)' : 'var(--bg-card)',
@@ -27,16 +27,21 @@ const S = {
     color: variant === 'ghost' ? 'var(--text-secondary)' : '#fff',
     border: variant === 'ghost' ? '1px solid var(--border)' : 'none',
   }),
-  empty: { textAlign: 'center', padding: '64px', color: 'var(--text-muted)' },
+  liveChip: {
+    fontSize: '11px', fontWeight: 700, padding: '2px 8px',
+    borderRadius: '4px', background: 'var(--success)', color: '#fff',
+    animation: 'blink 2s ease-in-out infinite',
+  },
+  emptyState: { textAlign: 'center', padding: '64px', color: 'var(--text-muted)' },
   emptyIcon: { fontSize: '32px', marginBottom: '12px' },
 };
 
 export default function UserInbox({ user, onBack }) {
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]             = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
 
     loadNotifications();
 
@@ -67,25 +72,23 @@ export default function UserInbox({ user, onBack }) {
 
   async function markRead(notifId) {
     const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
-    if (!error) {
-      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
-    }
+    if (!error) setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
   }
 
   async function markAllRead() {
     const ids = notifications.filter(n => !n.is_read).map(n => n.id);
     if (!ids.length) return;
     const { error } = await supabase.from('notifications').update({ is_read: true }).in('id', ids);
-    if (!error) {
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    }
+    if (!error) setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   }
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
     <div style={S.wrap}>
-      <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
+      <style>{`
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }
+      `}</style>
 
       <div style={S.header}>
         <div style={S.title}>
@@ -97,12 +100,12 @@ export default function UserInbox({ user, onBack }) {
           )}
           <span style={S.liveChip}>LIVE</span>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {unreadCount > 0 && (
             <button style={S.btn('ghost', 'sm')} onClick={markAllRead}>Mark all read</button>
           )}
           {onBack && (
-            <button style={S.btn('ghost', 'sm')} onClick={onBack}>← Back</button>
+            <button style={S.backBtn} onClick={onBack}>← Back</button>
           )}
         </div>
       </div>
@@ -112,7 +115,7 @@ export default function UserInbox({ user, onBack }) {
           Loading notifications...
         </div>
       ) : notifications.length === 0 ? (
-        <div style={S.empty}>
+        <div style={S.emptyState}>
           <div style={S.emptyIcon}>🔕</div>
           No notifications yet.
         </div>

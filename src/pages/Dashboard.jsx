@@ -4,6 +4,7 @@ import { Radio, User, AlertTriangle, MessageSquare, Navigation, LogOut, Menu, X,
 import 'leaflet/dist/leaflet.css'
 import { useTelemetry } from '../hooks/useTelemetry.js'
 import V2VPanel from '../components/V2VPanel.jsx'
+import { supabase } from '../lib/supabase.js'
 
 const STATUS_COLOR = {
   moving:  '#00ff9d',
@@ -15,13 +16,35 @@ const STATUS_COLOR = {
 
 export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, onOpenProfile, onOpenInbox }) {
   useTelemetry(user, vehicles, isDemo)
-  const [selected, setSelected]   = useState(null)
-  const [sidebarOpen, setSidebar] = useState(false)
-  const [sosVehicles, setSos]     = useState([])
+  const [selected, setSelected]       = useState(null)
+  const [sidebarOpen, setSidebar]     = useState(false)
+  const [sosVehicles, setSos]         = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
     setSos(vehicles.filter(v => v.status === 'sos'))
   }, [vehicles])
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    function fetchUnreadCount() {
+      supabase.from('notifications').select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id).eq('is_read', false)
+        .then(({ count }) => setUnreadCount(count || 0));
+    }
+
+    fetchUnreadCount();
+
+    const ch = supabase.channel('dashboard_unread')
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, fetchUnreadCount)
+      .subscribe();
+
+    return () => supabase.removeChannel(ch);
+  }, [user?.id])
 
   const initials = (profile?.full_name || user?.email || 'D')
     .split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -67,6 +90,16 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
           {/* Avatar / profile */}
           <button onClick={onOpenProfile} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#00d4ff', cursor: 'pointer' }}>
             {initials}
+          </button>
+
+          {/* Inbox button */}
+          <button onClick={onOpenInbox} style={{ position: 'relative', width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <MessageSquare size={14} color="#00d4ff" />
+            {unreadCount > 0 && (
+              <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, borderRadius: '50%', background: '#ff2d44', color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
 
           {/* Hamburger for vehicle sidebar on mobile */}
