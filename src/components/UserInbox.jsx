@@ -1,5 +1,5 @@
-// da-app/src/components/UserInbox.jsx
-// Real-time inbox — vehicle verification updates, fleet request outcomes, system alerts
+// src/components/UserInbox.jsx
+// Real-time user inbox — notifications for vehicle verification, fleet requests, etc.
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -11,19 +11,13 @@ const S = {
   backBtn: {
     padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)',
     background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
-    fontWeight: 600, fontSize: '13px',
-  },
-  liveChip: {
-    fontSize: '11px', fontWeight: 700, padding: '2px 8px',
-    borderRadius: '4px', background: 'var(--success)', color: '#fff',
-    animation: 'blink 2s ease-in-out infinite',
+    fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px',
   },
   card: (unread) => ({
     background: unread ? 'var(--accent-glow)' : 'var(--bg-card)',
     border: `1px solid ${unread ? 'var(--accent)' : 'var(--border)'}`,
     borderRadius: '12px', padding: '18px', marginBottom: '12px',
-    cursor: unread ? 'pointer' : 'default',
-    transition: 'all 0.2s',
+    transition: 'all 0.2s', cursor: unread ? 'pointer' : 'default',
   }),
   btn: (variant = 'primary', size = 'md') => ({
     padding: size === 'sm' ? '6px 14px' : '10px 20px',
@@ -33,7 +27,12 @@ const S = {
     color: variant === 'ghost' ? 'var(--text-secondary)' : '#fff',
     border: variant === 'ghost' ? '1px solid var(--border)' : 'none',
   }),
-  empty: { textAlign: 'center', padding: '64px', color: 'var(--text-muted)' },
+  liveChip: {
+    fontSize: '11px', fontWeight: 700, padding: '2px 8px',
+    borderRadius: '4px', background: 'var(--success)', color: '#fff',
+    animation: 'blink 2s ease-in-out infinite',
+  },
+  emptyState: { textAlign: 'center', padding: '64px', color: 'var(--text-muted)' },
   emptyIcon: { fontSize: '32px', marginBottom: '12px' },
 };
 
@@ -42,7 +41,8 @@ export default function UserInbox({ user, onBack }) {
   const [loading, setLoading]             = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
+
     loadNotifications();
 
     const ch = supabase.channel('user_inbox_realtime')
@@ -50,10 +50,14 @@ export default function UserInbox({ user, onBack }) {
         event: 'INSERT', schema: 'public', table: 'notifications',
         filter: `user_id=eq.${user.id}`,
       }, payload => setNotifications(prev => [payload.new, ...prev]))
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, payload => setNotifications(prev => prev.map(n => n.id === payload.new.id ? payload.new : n)))
       .subscribe();
 
     return () => supabase.removeChannel(ch);
-  }, [user]);
+  }, [user?.id]);
 
   async function loadNotifications() {
     const { data } = await supabase
@@ -67,15 +71,15 @@ export default function UserInbox({ user, onBack }) {
   }
 
   async function markRead(notifId) {
-    await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
-    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
+    if (!error) setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
   }
 
   async function markAllRead() {
     const ids = notifications.filter(n => !n.is_read).map(n => n.id);
     if (!ids.length) return;
-    await supabase.from('notifications').update({ is_read: true }).in('id', ids);
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    const { error } = await supabase.from('notifications').update({ is_read: true }).in('id', ids);
+    if (!error) setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   }
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
@@ -88,7 +92,7 @@ export default function UserInbox({ user, onBack }) {
 
       <div style={S.header}>
         <div style={S.title}>
-          <span>📬</span> Inbox
+          <span>📬</span> My Inbox
           {unreadCount > 0 && (
             <span style={{ fontSize: '13px', fontWeight: 700, padding: '2px 10px', borderRadius: '20px', background: 'var(--danger)', color: '#fff' }}>
               {unreadCount}
@@ -111,9 +115,9 @@ export default function UserInbox({ user, onBack }) {
           Loading notifications...
         </div>
       ) : notifications.length === 0 ? (
-        <div style={S.empty}>
+        <div style={S.emptyState}>
           <div style={S.emptyIcon}>🔕</div>
-          No notifications yet. You'll be notified here about vehicle verification updates and fleet requests.
+          No notifications yet.
         </div>
       ) : (
         notifications.map(n => (
