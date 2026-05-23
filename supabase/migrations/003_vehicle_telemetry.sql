@@ -56,6 +56,22 @@ begin
 end;
 $$;
 
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'vehicle_telemetry'
+      and column_name = 'created_at'
+  ) then
+    execute 'update public.vehicle_telemetry
+             set recorded_at = created_at
+             where recorded_at is null';
+  end if;
+end;
+$$;
+
 update public.vehicle_telemetry
 set recorded_at = now()
 where recorded_at is null;
