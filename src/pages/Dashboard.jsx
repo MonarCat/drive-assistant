@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet'
+import React, { useState, useEffect, useMemo } from 'react'
+import { MapContainer, TileLayer, CircleMarker, Popup, Polyline } from 'react-leaflet'
 import { Radio, User, AlertTriangle, MessageSquare, Navigation, LogOut, Menu, X, Bell } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
-import { useTelemetry } from '../hooks/useTelemetry.js'
 import V2VPanel from '../components/V2VPanel.jsx'
 import { supabase } from '../lib/supabase.js'
+import { startTracking, stopTracking } from '../services/telemetry.js'
+import { getSessionAndVehicle } from '../services/auth.js'
+import { triggerSOS } from '../services/sos.js'
 
 const STATUS_COLOR = {
   moving:  '#00ff9d',
@@ -13,17 +15,91 @@ const STATUS_COLOR = {
   sos:     '#ff2d44',
   offline: '#444',
 }
+const DEFAULT_CENTER = [-1.2921, 36.8219]
+const MESH_DISTANCE_THRESHOLD_DEGREES = 0.04 // rough degree-based threshold; varies by latitude
 
 export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, onOpenProfile, onOpenInbox }) {
-  useTelemetry(user, vehicles, isDemo)
-  const [selected, setSelected]       = useState(null)
-  const [sidebarOpen, setSidebar]     = useState(false)
-  const [sosVehicles, setSos]         = useState([])
+  const [selected, setSelected] = useState(null)
+  const [sidebarOpen, setSidebar] = useState(false)
+  const [sosVehicles, setSos] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [fleetVehicles, setFleetVehicles] = useState([])
+  const [myVehicle, setMyVehicle] = useState(null)
+  const [myVehicleId, setMyVehicleId] = useState(null)
+  const [tracking, setTracking] = useState(false)
+  const [statusMsg, setStatusMsg] = useState('')
+
+  const normalizedVehicles = useMemo(
+    () => fleetVehicles.map(v => ({
+      ...v,
+      plate: v.plate || v.plate_number || 'UNKNOWN',
+      status: (v.status || v.vehicle_status || 'offline').toLowerCase(),
+      lat: v.lat ?? v.latitude ?? null,
+      lng: v.lng ?? v.longitude ?? null,
+    })).filter(v => v.lat != null && v.lng != null),
+    [fleetVehicles]
+  )
 
   useEffect(() => {
-    setSos(vehicles.filter(v => v.status === 'sos'))
-  }, [vehicles])
+    setSos(normalizedVehicles.filter(v => v.status === 'sos'))
+  }, [normalizedVehicles])
+
+  useEffect(() => {
+    if (isDemo) {
+      setFleetVehicles(vehicles)
+      return
+    }
+
+    let alive = true
+    let channel = null
+
+    async function loadAllVehicles() {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('id, plate_number, plate, status, vehicle_status, latitude, longitude, lat, lng, speed, make, model, year, zone')
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null)
+
+      if (!error && data && alive) setFleetVehicles(data)
+    }
+
+    loadAllVehicles()
+
+    channel = supabase
+      .channel('da-mesh')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'vehicles' },
+        loadAllVehicles
+      )
+      .subscribe()
+
+    return () => {
+      alive = false
+      if (channel) supabase.removeChannel(channel)
+    }
+  }, [isDemo])
+
+  useEffect(() => {
+    if (isDemo) return
+    let mounted = true
+
+    getSessionAndVehicle().then(({ vehicle, vehicleId }) => {
+      if (!mounted) return
+      setMyVehicle(vehicle)
+      setMyVehicleId(vehicleId)
+      if (vehicleId) {
+        startTracking(vehicleId)
+        setTracking(true)
+      }
+    })
+
+    return () => {
+      mounted = false
+      stopTracking()
+      setTracking(false)
+    }
+  }, [isDemo])
 
   useEffect(() => {
     if (!user?.id) return;
@@ -50,7 +126,55 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
     .split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
   // Default center — Nairobi
-  const center = [-1.2921, 36.8219]
+  const center = DEFAULT_CENTER
+  const meshLines = useMemo(() => {
+    const lines = []
+    const activeVehicles = normalizedVehicles.filter(v => v.status !== 'offline')
+    for (let i = 0; i < activeVehicles.length; i += 1) {
+      for (let j = i + 1; j < activeVehicles.length; j += 1) {
+        const a = activeVehicles[i]
+        const b = activeVehicles[j]
+        // Approximate short-range proximity check in lat/lng degrees for mesh links.
+        const dist = Math.sqrt(Math.pow(a.lat - b.lat, 2) + Math.pow(a.lng - b.lng, 2))
+        if (dist < MESH_DISTANCE_THRESHOLD_DEGREES) {
+          lines.push({
+            id: `${a.id}-${b.id}`,
+            positions: [[a.lat, a.lng], [b.lat, b.lng]],
+          })
+        }
+      }
+    }
+    return lines
+  }, [normalizedVehicles])
+
+  async function handleBroadcastSOS() {
+    if (isDemo) {
+      setStatusMsg('SOS disabled in demo mode')
+      return
+    }
+    if (!user?.id || !myVehicleId) {
+      setStatusMsg('No assigned vehicle found for SOS')
+      return
+    }
+
+    try {
+      const position = await new Promise(resolve => {
+        if (!navigator.geolocation) {
+          resolve(null)
+          return
+        }
+        navigator.geolocation.getCurrentPosition(
+          pos => resolve(pos),
+          () => resolve(null),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+        )
+      })
+      await triggerSOS(user.id, myVehicleId, position)
+      setStatusMsg('SOS alert sent')
+    } catch {
+      setStatusMsg('SOS failed to send')
+    }
+  }
 
   return (
     <div style={{ height: '100vh', background: '#0a0e1a', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'Exo 2', sans-serif" }}>
@@ -77,8 +201,14 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* Vehicle count */}
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: "'Share Tech Mono', monospace" }}>
-            {vehicles.length} VEHICLE{vehicles.length !== 1 ? 'S' : ''}
+            {normalizedVehicles.length} VEHICLE{normalizedVehicles.length !== 1 ? 'S' : ''}
           </div>
+
+          {!isDemo && (
+            <div style={{ fontSize: 10, color: tracking ? '#00ff9d' : 'rgba(255,255,255,0.3)', fontFamily: "'Share Tech Mono', monospace" }}>
+              {tracking ? `TRACKING ON${myVehicle?.plate_number ? ` · ${myVehicle.plate_number}` : ''}` : 'TRACKING OFF'}
+            </div>
+          )}
 
           {/* Inbox */}
           {onOpenInbox && (
@@ -126,10 +256,23 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
                 attribution='&copy; OpenStreetMap contributors &copy; CARTO'
               />
 
-              {vehicles.map(v => (
+              {meshLines.map(line => (
+                <Polyline
+                  key={line.id}
+                  positions={line.positions}
+                  pathOptions={{
+                    color: '#00d4ff',
+                    weight: 1,
+                    opacity: 0.15,
+                    dashArray: '4 6',
+                  }}
+                />
+              ))}
+
+              {normalizedVehicles.map(v => (
                 <CircleMarker
                   key={v.id}
-                  center={[v.lat || v.latitude || -1.2921, v.lng || v.longitude || 36.8219]}
+                  center={[v.lat || v.latitude || DEFAULT_CENTER[0], v.lng || v.longitude || DEFAULT_CENTER[1]]}
                   radius={selected?.id === v.id ? 10 : 7}
                   pathOptions={{
                     color: STATUS_COLOR[v.status] || '#444',
@@ -141,17 +284,17 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
                 >
                   <Popup>
                     <div style={{ fontFamily: 'monospace', fontSize: 12, minWidth: 140 }}>
-                      <strong>{v.plate}</strong><br />
-                      {v.make} {v.model}<br />
-                      Status: {v.status}<br />
-                      {v.speed ? `Speed: ${v.speed} km/h` : ''}
+                    <strong>{v.plate || v.plate_number}</strong><br />
+                    {v.make} {v.model}<br />
+                    Status: {v.status}<br />
+                    {v.speed ? `Speed: ${v.speed} km/h` : ''}
                     </div>
                   </Popup>
                 </CircleMarker>
               ))}
 
               {/* Show placeholder dot if no vehicles yet */}
-              {vehicles.length === 0 && (
+              {normalizedVehicles.length === 0 && (
                 <CircleMarker
                   center={center}
                   radius={6}
@@ -162,10 +305,10 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
           )}
 
           {/* V2V Panel */}
-          <V2VPanel user={user} vehicles={vehicles} isDemo={isDemo} />
+          <V2VPanel user={user} vehicles={normalizedVehicles} isDemo={isDemo} />
 
           {/* No vehicles message */}
-          {vehicles.length === 0 && (
+          {normalizedVehicles.length === 0 && (
             <div style={{ position: 'absolute', bottom: 80, left: '50%', transform: 'translateX(-50%)', padding: '10px 18px', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 8, fontSize: 12, color: 'rgba(255,255,255,0.5)', textAlign: 'center', zIndex: 500, whiteSpace: 'nowrap' }}>
               No vehicles yet —{' '}
               <button onClick={onOpenProfile} style={{ background: 'none', border: 'none', color: '#00d4ff', fontSize: 12, textDecoration: 'underline', cursor: 'pointer' }}>
@@ -173,8 +316,6 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
               </button>
             </div>
           )}
-
-          <V2VPanel user={user} vehicles={vehicles} isDemo={isDemo} />
         </div>
 
         {/* VEHICLE SIDEBAR */}
@@ -189,14 +330,37 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
                   <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><X size={13} /></button>
                 </div>
                 <VehicleCard vehicle={selected} expanded />
+                <button
+                  onClick={handleBroadcastSOS}
+                  style={{
+                    marginTop: 10,
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    background: 'rgba(255,45,68,0.1)',
+                    border: '1px solid rgba(255,45,68,0.3)',
+                    color: '#ff2d44',
+                    fontSize: 11,
+                    fontFamily: "'Share Tech Mono', monospace",
+                    letterSpacing: 1,
+                    cursor: 'pointer',
+                  }}
+                >
+                  🚨 BROADCAST SOS
+                </button>
+                {!!statusMsg && (
+                  <div style={{ marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.5)', fontFamily: "'Share Tech Mono', monospace" }}>
+                    {statusMsg}
+                  </div>
+                )}
               </div>
             )}
 
             {/* All vehicles list */}
             <div style={{ padding: '12px 16px 8px', fontSize: 10, letterSpacing: 2, color: 'rgba(255,255,255,0.25)', fontFamily: "'Share Tech Mono', monospace" }}>
-              MY VEHICLES ({vehicles.length})
+              VEHICLE MESH ({normalizedVehicles.length})
             </div>
-            {vehicles.length === 0 ? (
+            {normalizedVehicles.length === 0 ? (
               <div style={{ padding: '20px 16px', fontSize: 12, color: 'rgba(255,255,255,0.2)', textAlign: 'center', lineHeight: 1.7 }}>
                 No vehicles registered.<br />
                 <button onClick={onOpenProfile} style={{ marginTop: 8, background: 'none', border: 'none', color: '#00d4ff', fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}>
@@ -204,7 +368,7 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
                 </button>
               </div>
             ) : (
-              vehicles.map(v => (
+              normalizedVehicles.map(v => (
                 <div key={v.id} onClick={() => setSelected(v)}
                   style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', background: selected?.id === v.id ? 'rgba(0,212,255,0.05)' : 'transparent', transition: 'background 0.15s' }}>
                   <VehicleCard vehicle={v} />
