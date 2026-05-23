@@ -26,7 +26,7 @@ begin
       and column_name = 'lat'
   ) then
     execute 'update public.vehicle_telemetry
-             set latitude = coalesce(latitude, lat)
+             set latitude = lat
              where latitude is null';
   end if;
 
@@ -38,7 +38,7 @@ begin
       and column_name = 'lng'
   ) then
     execute 'update public.vehicle_telemetry
-             set longitude = coalesce(longitude, lng)
+             set longitude = lng
              where longitude is null';
   end if;
 
@@ -50,7 +50,7 @@ begin
       and column_name = 'last_seen'
   ) then
     execute 'update public.vehicle_telemetry
-             set recorded_at = coalesce(recorded_at, last_seen)
+             set recorded_at = last_seen
              where recorded_at is null';
   end if;
 end;
