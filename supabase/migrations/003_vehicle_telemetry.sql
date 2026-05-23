@@ -60,8 +60,20 @@ update public.vehicle_telemetry
 set recorded_at = now()
 where recorded_at is null;
 
-alter table public.vehicle_telemetry
-  alter column recorded_at set default now();
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'vehicle_telemetry'
+      and column_name = 'recorded_at'
+  ) then
+    execute 'alter table public.vehicle_telemetry
+             alter column recorded_at set default now()';
+  end if;
+end;
+$$;
 
 create index if not exists idx_vehicle_telemetry_vehicle_recorded
   on vehicle_telemetry (vehicle_id, recorded_at desc);
@@ -85,14 +97,12 @@ create policy "authenticated read telemetry"
   on vehicle_telemetry for select
   using (auth.role() = 'authenticated');
 
-create or replace function update_vehicle_last_seen()
-returns trigger language plpgsql as $$
+do $$
 declare
   has_vehicle_latitude boolean;
   has_vehicle_longitude boolean;
   has_vehicle_lat boolean;
   has_vehicle_lng boolean;
-  update_sql text := 'update vehicles set last_seen = $1, speed = $2';
 begin
   select exists (
     select 1
@@ -126,24 +136,80 @@ begin
       and column_name = 'lng'
   ) into has_vehicle_lng;
 
-  if has_vehicle_latitude then
-    update_sql := update_sql || ', latitude = $3';
-  elsif has_vehicle_lat then
-    update_sql := update_sql || ', lat = $3';
+  if has_vehicle_latitude and has_vehicle_longitude then
+    execute $fn$
+      create or replace function update_vehicle_last_seen()
+      returns trigger language plpgsql as $$
+      begin
+        update vehicles
+        set last_seen = new.recorded_at,
+            latitude = new.latitude,
+            longitude = new.longitude,
+            speed = new.speed
+        where id = new.vehicle_id;
+        return new;
+      end;
+      $$;
+    $fn$;
+  elsif has_vehicle_lat and has_vehicle_lng then
+    execute $fn$
+      create or replace function update_vehicle_last_seen()
+      returns trigger language plpgsql as $$
+      begin
+        update vehicles
+        set last_seen = new.recorded_at,
+            lat = new.latitude,
+            lng = new.longitude,
+            speed = new.speed
+        where id = new.vehicle_id;
+        return new;
+      end;
+      $$;
+    $fn$;
+  elsif has_vehicle_latitude and has_vehicle_lng then
+    execute $fn$
+      create or replace function update_vehicle_last_seen()
+      returns trigger language plpgsql as $$
+      begin
+        update vehicles
+        set last_seen = new.recorded_at,
+            latitude = new.latitude,
+            lng = new.longitude,
+            speed = new.speed
+        where id = new.vehicle_id;
+        return new;
+      end;
+      $$;
+    $fn$;
+  elsif has_vehicle_lat and has_vehicle_longitude then
+    execute $fn$
+      create or replace function update_vehicle_last_seen()
+      returns trigger language plpgsql as $$
+      begin
+        update vehicles
+        set last_seen = new.recorded_at,
+            lat = new.latitude,
+            longitude = new.longitude,
+            speed = new.speed
+        where id = new.vehicle_id;
+        return new;
+      end;
+      $$;
+    $fn$;
+  else
+    execute $fn$
+      create or replace function update_vehicle_last_seen()
+      returns trigger language plpgsql as $$
+      begin
+        update vehicles
+        set last_seen = new.recorded_at,
+            speed = new.speed
+        where id = new.vehicle_id;
+        return new;
+      end;
+      $$;
+    $fn$;
   end if;
-
-  if has_vehicle_longitude then
-    update_sql := update_sql || ', longitude = $4';
-  elsif has_vehicle_lng then
-    update_sql := update_sql || ', lng = $4';
-  end if;
-
-  update_sql := update_sql || ' where id = $5';
-
-  execute update_sql
-    using new.recorded_at, new.speed, new.latitude, new.longitude, new.vehicle_id;
-
-  return new;
 end;
 $$;
 
