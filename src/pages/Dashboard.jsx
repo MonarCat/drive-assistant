@@ -15,6 +15,7 @@ const STATUS_COLOR = {
   sos:     '#ff2d44',
   offline: '#444',
 }
+const DEFAULT_CENTER = [-1.2921, 36.8219]
 const MESH_DISTANCE_THRESHOLD_DEGREES = 0.04 // ~4–5km around equator for proximity links
 
 export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, onOpenProfile, onOpenInbox }) {
@@ -125,7 +126,7 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
     .split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
   // Default center — Nairobi
-  const center = [-1.2921, 36.8219]
+  const center = DEFAULT_CENTER
   const meshLines = useMemo(() => {
     const lines = []
     const activeVehicles = normalizedVehicles.filter(v => v.status !== 'offline')
@@ -271,7 +272,7 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
               {normalizedVehicles.map(v => (
                 <CircleMarker
                   key={v.id}
-                  center={[v.lat || v.latitude || -1.2921, v.lng || v.longitude || 36.8219]}
+                  center={[v.lat || v.latitude || DEFAULT_CENTER[0], v.lng || v.longitude || DEFAULT_CENTER[1]]}
                   radius={selected?.id === v.id ? 10 : 7}
                   pathOptions={{
                     color: STATUS_COLOR[v.status] || '#444',
