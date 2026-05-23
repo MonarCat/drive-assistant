@@ -16,7 +16,7 @@ const STATUS_COLOR = {
   offline: '#444',
 }
 const DEFAULT_CENTER = [-1.2921, 36.8219]
-const MESH_DISTANCE_THRESHOLD_DEGREES = 0.04 // ~4–5km around equator for proximity links
+const MESH_DISTANCE_THRESHOLD_DEGREES = 0.04 // rough degree-based threshold; varies by latitude
 
 export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, onOpenProfile, onOpenInbox }) {
   const [selected, setSelected] = useState(null)

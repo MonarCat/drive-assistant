@@ -7,9 +7,12 @@ let isTracking = false
 let lastSentAt = 0
 const MS_TO_KMH = 3.6
 const TELEMETRY_INTERVAL_MS = 10000
+const SPEED_PRECISION_FACTOR = 100
 
 function toKmh(speedMs) {
-  return speedMs != null ? Math.round(speedMs * MS_TO_KMH * 100) / 100 : null
+  return speedMs != null
+    ? Math.round(speedMs * MS_TO_KMH * SPEED_PRECISION_FACTOR) / SPEED_PRECISION_FACTOR
+    : null
 }
 
 function generateSessionId() {
