@@ -31,6 +31,22 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
+### Environment variables
+
+Create `/home/runner/work/drive-assistant/drive-assistant/.env`:
+
+```bash
+VITE_SUPABASE_URL=https://wklhcmaodxatavuoduhd.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+### Supabase SQL migrations
+
+Run these SQL files in Supabase (same project used by `da-admin`):
+
+- `supabase/migrations/003_vehicle_telemetry.sql`
+- `supabase/migrations/004_sos_alerts.sql`
+
 ## Deploy to Netlify
 
 1. Push to GitHub
