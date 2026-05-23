@@ -15,7 +15,7 @@ const STATUS_COLOR = {
   sos:     '#ff2d44',
   offline: '#444',
 }
-const MESH_DISTANCE_THRESHOLD_DEGREES = 0.04
+const MESH_DISTANCE_THRESHOLD_DEGREES = 0.04 // ~4–5km around equator for proximity links
 
 export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, onOpenProfile, onOpenInbox }) {
   const [selected, setSelected] = useState(null)
@@ -304,7 +304,7 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
           )}
 
           {/* V2V Panel */}
-          <V2VPanel user={user} vehicles={vehicles} isDemo={isDemo} />
+          <V2VPanel user={user} vehicles={normalizedVehicles} isDemo={isDemo} />
 
           {/* No vehicles message */}
           {normalizedVehicles.length === 0 && (
