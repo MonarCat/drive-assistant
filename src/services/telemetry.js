@@ -5,6 +5,7 @@ let sessionId = null
 let vehicleId = null
 let isTracking = false
 let lastSentAt = 0
+const MS_TO_KMH = 3.6
 
 function generateSessionId() {
   return crypto.randomUUID()
@@ -53,7 +54,7 @@ export async function startTracking(vehId) {
         vehicle_id: vehicleId,
         latitude,
         longitude,
-        speed: speed != null ? Math.round(speed * 3.6 * 100) / 100 : null,
+        speed: speed != null ? Math.round(speed * MS_TO_KMH * 100) / 100 : null,
         heading: heading ?? null,
         accuracy: accuracy ?? null,
         altitude: altitude ?? null,

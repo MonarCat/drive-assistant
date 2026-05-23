@@ -15,6 +15,7 @@ const STATUS_COLOR = {
   sos:     '#ff2d44',
   offline: '#444',
 }
+const MESH_DISTANCE_THRESHOLD_DEGREES = 0.04
 
 export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, onOpenProfile, onOpenInbox }) {
   const [selected, setSelected] = useState(null)
@@ -132,8 +133,9 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
       for (let j = i + 1; j < activeVehicles.length; j += 1) {
         const a = activeVehicles[i]
         const b = activeVehicles[j]
+        // Approximate short-range proximity check in lat/lng degrees for mesh links.
         const dist = Math.sqrt(Math.pow(a.lat - b.lat, 2) + Math.pow(a.lng - b.lng, 2))
-        if (dist < 0.04) {
+        if (dist < MESH_DISTANCE_THRESHOLD_DEGREES) {
           lines.push({
             id: `${a.id}-${b.id}`,
             positions: [[a.lat, a.lng], [b.lat, b.lng]],

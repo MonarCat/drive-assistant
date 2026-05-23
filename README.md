@@ -33,7 +33,7 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ### Environment variables
 
-Create `/home/runner/work/drive-assistant/drive-assistant/.env`:
+Create `.env` at the project root:
 
 ```bash
 VITE_SUPABASE_URL=https://wklhcmaodxatavuoduhd.supabase.co
