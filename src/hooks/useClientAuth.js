@@ -69,6 +69,12 @@ export function useClientAuth() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
+      // Don't rely solely on onAuthStateChange firing SIGNED_IN -- if it
+      // races with a still-completing signOut from a moment ago, that event
+      // can arrive late or get clobbered, leaving the UI stuck on the login
+      // screen with no error. Hydrate directly here so login always resolves.
+      if (data?.user) { setSession(data.session); await hydrate(data.user) }
+      setLoading(false)
       return data
     } catch(e) { setLoading(false); if (e.message.includes('Email not confirmed')) throw new Error('Please confirm your email first.'); throw e }
   }
@@ -91,10 +97,10 @@ export function useClientAuth() {
     if (error) throw error
   }
  
-  function signOut() {
+  async function signOut() {
     if (isDemo) { exitDemo(); return }
     setUser(null); setProfile(null); setSession(null); setVehicles([])
-    supabase.auth.signOut()
+    await supabase.auth.signOut()
   }
  
   async function refreshVehicles() {
