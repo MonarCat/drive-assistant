@@ -83,7 +83,11 @@ export function useClientAuth() {
  
   async function resetPassword(email) {
     if (!email?.trim()) throw new Error('Enter your email first')
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: 'https://da-app.netlify.app/reset-password' })
+    // NOTE: there is no dedicated /reset-password route in this app yet (no
+    // router, and no recovery-token handling on load) -- this redirect just
+    // lands on the live app root rather than a dead domain. Build a real
+    // recovery screen before relying on self-service password reset.
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: 'https://drive-assistant-zeta.vercel.app/' })
     if (error) throw error
   }
  
