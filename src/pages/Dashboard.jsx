@@ -252,8 +252,8 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
               zoomControl={false}
             >
               <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; OpenStreetMap contributors'
+                url="https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_3i2e_1_a218eeefb382e978423d8c13"
+                attribution='&copy; OpenStreetMap contributors &copy; CARTO'
               />
 
               {meshLines.map(line => (
