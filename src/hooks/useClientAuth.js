@@ -73,7 +73,22 @@ export function useClientAuth() {
       // races with a still-completing signOut from a moment ago, that event
       // can arrive late or get clobbered, leaving the UI stuck on the login
       // screen with no error. Hydrate directly here so login always resolves.
-      if (data?.user) { setSession(data.session); await hydrate(data.user) }
+      // Bounded with a timeout: a free-tier Supabase project cold-starting
+      // after idle time can hang the *next* query for several seconds even
+      // though auth itself already succeeded -- don't let that hang the UI.
+      if (data?.user) {
+        setSession(data.session)
+        await Promise.race([
+          hydrate(data.user),
+          new Promise((resolve) => setTimeout(() => {
+            console.warn('[Auth] Profile hydrate timed out (likely a cold-starting DB) -- continuing with a minimal profile.')
+            const name = data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Driver'
+            setUser(data.user)
+            setProfile({ id: data.user.id, full_name: name, role: 'driver' })
+            resolve()
+          }, 8000)),
+        ])
+      }
       setLoading(false)
       return data
     } catch(e) { setLoading(false); if (e.message.includes('Email not confirmed')) throw new Error('Please confirm your email first.'); throw e }
