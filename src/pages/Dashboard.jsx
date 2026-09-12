@@ -106,7 +106,7 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
 
     function fetchUnreadCount() {
       supabase.from('notifications').select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id).eq('is_read', false)
+        .eq('to_role', 'driver').eq('read', false)
         .then(({ count }) => setUnreadCount(count || 0));
     }
 
@@ -115,8 +115,7 @@ export default function Dashboard({ user, profile, vehicles, isDemo, onSignOut, 
     const ch = supabase.channel('dashboard_unread')
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'notifications',
-        filter: `user_id=eq.${user.id}`,
-      }, fetchUnreadCount)
+      }, (payload) => { if ((payload.new || payload.old)?.to_role === 'driver') fetchUnreadCount(); })
       .subscribe();
 
     return () => supabase.removeChannel(ch);

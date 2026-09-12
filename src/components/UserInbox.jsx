@@ -48,12 +48,10 @@ export default function UserInbox({ user, onBack }) {
     const ch = supabase.channel('user_inbox_realtime')
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'notifications',
-        filter: `user_id=eq.${user.id}`,
-      }, payload => setNotifications(prev => [payload.new, ...prev]))
+      }, payload => { if (payload.new.to_role === 'driver') setNotifications(prev => [payload.new, ...prev]) })
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'notifications',
-        filter: `user_id=eq.${user.id}`,
-      }, payload => setNotifications(prev => prev.map(n => n.id === payload.new.id ? payload.new : n)))
+      }, payload => { if (payload.new.to_role === 'driver') setNotifications(prev => prev.map(n => n.id === payload.new.id ? payload.new : n)) })
       .subscribe();
 
     return () => supabase.removeChannel(ch);
@@ -63,7 +61,7 @@ export default function UserInbox({ user, onBack }) {
     const { data } = await supabase
       .from('notifications')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('to_role', 'driver')
       .order('created_at', { ascending: false })
       .limit(50);
     setNotifications(data || []);
@@ -71,18 +69,18 @@ export default function UserInbox({ user, onBack }) {
   }
 
   async function markRead(notifId) {
-    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
-    if (!error) setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
+    const { error } = await supabase.from('notifications').update({ read: true }).eq('id', notifId);
+    if (!error) setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
   }
 
   async function markAllRead() {
-    const ids = notifications.filter(n => !n.is_read).map(n => n.id);
+    const ids = notifications.filter(n => !n.read).map(n => n.id);
     if (!ids.length) return;
-    const { error } = await supabase.from('notifications').update({ is_read: true }).in('id', ids);
-    if (!error) setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    const { error } = await supabase.from('notifications').update({ read: true }).in('id', ids);
+    if (!error) setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   }
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <div style={S.wrap}>
@@ -123,11 +121,11 @@ export default function UserInbox({ user, onBack }) {
         notifications.map(n => (
           <div
             key={n.id}
-            style={S.card(!n.is_read)}
-            onClick={() => !n.is_read && markRead(n.id)}
+            style={S.card(!n.read)}
+            onClick={() => !n.read && markRead(n.id)}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ fontWeight: n.is_read ? 500 : 700, marginBottom: '4px' }}>
+              <div style={{ fontWeight: n.read ? 500 : 700, marginBottom: '4px' }}>
                 {n.title}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0, marginLeft: '12px' }}>
@@ -135,7 +133,7 @@ export default function UserInbox({ user, onBack }) {
               </div>
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{n.message}</div>
-            {!n.is_read && (
+            {!n.read && (
               <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--accent)', cursor: 'pointer' }}>
                 Click to mark as read
               </div>
